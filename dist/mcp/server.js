@@ -6,16 +6,25 @@ export async function startMcpServer(config) {
     const client = new ConvexHttpClient(config.convexUrl);
     const server = new Server({
         name: "agent-memory",
-        version: "0.0.1",
+        version: "0.1.0",
     }, {
         capabilities: {
             tools: {},
             resources: {},
         },
     });
+    const WRITE_TOOLS = [
+        "memory_remember",
+        "memory_forget",
+        "memory_update",
+        "memory_restore",
+        "memory_feedback",
+        "memory_relate",
+        "memory_batch_archive",
+        "memory_ingest",
+    ];
     const isDisabled = (name) => config.disabledTools.includes(name) ||
-        (config.readOnly &&
-            ["memory_remember", "memory_forget", "memory_update"].includes(name));
+        (config.readOnly && WRITE_TOOLS.includes(name));
     // ── List Tools ──────────────────────────────────────────────────
     server.setRequestHandler(ListToolsRequestSchema, async () => {
         const allTools = [
@@ -33,7 +42,9 @@ export async function startMcpServer(config) {
                             description: "Type of memory",
                         },
                         tags: { type: "array", items: { type: "string" }, description: "Tags" },
-                        priority: { type: "number", minimum: 0, maximum: 1, description: "Priority (0-1)" },
+                        priority: { type: "number", minimum: 0, maximum: 1, description: "Priority (0-1, >= 0.8 = pinned)" },
+                        agentId: { type: "string", description: "Agent that created this memory" },
+                        sessionId: { type: "string", description: "Session/conversation ID" },
                     },
                     required: ["title", "content", "memoryType"],
                 },
@@ -71,6 +82,10 @@ export async function startMcpServer(config) {
                     properties: {
                         memoryType: { type: "string", description: "Filter by type" },
                         minPriority: { type: "number", description: "Minimum priority" },
+                        agentId: { type: "string", description: "Filter by agent" },
+                        sessionId: { type: "string", description: "Filter by session" },
+                        source: { type: "string", description: "Filter by source tool" },
+                        tags: { type: "array", items: { type: "string" }, description: "Filter by tags (any match)" },
                         limit: { type: "number", description: "Max results" },
                     },
                 },
@@ -102,6 +117,17 @@ export async function startMcpServer(config) {
                 },
             },
             {
+                name: "memory_restore",
+                description: "Restore a previously archived memory",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        memoryId: { type: "string", description: "Memory ID to restore" },
+                    },
+                    required: ["memoryId"],
+                },
+            },
+            {
                 name: "memory_update",
                 description: "Update an existing memory",
                 inputSchema: {
@@ -109,10 +135,97 @@ export async function startMcpServer(config) {
                     properties: {
                         memoryId: { type: "string", description: "Memory ID to update" },
                         content: { type: "string", description: "New content" },
+                        title: { type: "string", description: "New title" },
                         tags: { type: "array", items: { type: "string" } },
                         priority: { type: "number", minimum: 0, maximum: 1 },
                     },
                     required: ["memoryId"],
+                },
+            },
+            {
+                name: "memory_history",
+                description: "View the change history of a memory (audit trail)",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        memoryId: { type: "string", description: "Memory ID" },
+                        limit: { type: "number", description: "Max entries" },
+                    },
+                    required: ["memoryId"],
+                },
+            },
+            {
+                name: "memory_feedback",
+                description: "Rate a memory as helpful or unhelpful",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        memoryId: { type: "string", description: "Memory ID to rate" },
+                        sentiment: {
+                            type: "string",
+                            enum: ["positive", "negative", "very_negative"],
+                            description: "Feedback sentiment",
+                        },
+                        comment: { type: "string", description: "Optional comment explaining the rating" },
+                    },
+                    required: ["memoryId", "sentiment"],
+                },
+            },
+            {
+                name: "memory_relate",
+                description: "Create a relationship between two memories",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        fromMemoryId: { type: "string", description: "Source memory ID" },
+                        toMemoryId: { type: "string", description: "Target memory ID" },
+                        relationship: {
+                            type: "string",
+                            description: "Type of relationship (e.g. 'contradicts', 'extends', 'replaces', 'related_to')",
+                        },
+                    },
+                    required: ["fromMemoryId", "toMemoryId", "relationship"],
+                },
+            },
+            {
+                name: "memory_relations",
+                description: "View relationships of a memory (graph connections)",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        memoryId: { type: "string", description: "Memory ID" },
+                        relationship: { type: "string", description: "Filter by relationship type" },
+                        direction: { type: "string", enum: ["from", "to", "both"], description: "Direction filter" },
+                    },
+                    required: ["memoryId"],
+                },
+            },
+            {
+                name: "memory_batch_archive",
+                description: "Archive multiple memories at once",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        memoryIds: {
+                            type: "array",
+                            items: { type: "string" },
+                            description: "Memory IDs to archive",
+                        },
+                    },
+                    required: ["memoryIds"],
+                },
+            },
+            {
+                name: "memory_ingest",
+                description: "Intelligently extract memories from raw text. Uses LLM to extract facts, deduplicates against existing memories, and decides whether to add, update, or skip each fact.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        content: { type: "string", description: "Raw text to extract memories from (conversation, notes, etc.)" },
+                        agentId: { type: "string", description: "Agent performing the ingest" },
+                        sessionId: { type: "string", description: "Session/conversation ID" },
+                    },
+                    required: ["content"],
                 },
             },
         ];
@@ -140,6 +253,8 @@ export async function startMcpServer(config) {
                         memoryType: args.memoryType,
                         tags: args.tags ?? [],
                         priority: args.priority,
+                        agentId: args.agentId,
+                        sessionId: args.sessionId,
                         source: "mcp",
                     });
                     return {
@@ -159,39 +274,28 @@ export async function startMcpServer(config) {
                         limit: args.limit ?? 10,
                     });
                     return {
-                        content: [
-                            {
-                                type: "text",
-                                text: formatMemories(results),
-                            },
-                        ],
+                        content: [{ type: "text", text: formatMemories(results) }],
                     };
                 }
                 case "memory_semantic_recall": {
                     if (!config.embeddingApiKey) {
-                        // Fall back to full-text
                         const results = await client.query("agentMemory/queries:search", {
                             projectId: config.projectId,
                             query: args.query,
                             limit: args.limit ?? 10,
                         });
                         return {
-                            content: [
-                                {
-                                    type: "text",
-                                    text: formatMemories(results),
-                                },
-                            ],
+                            content: [{ type: "text", text: formatMemories(results) }],
                         };
                     }
                     // TODO: call semanticSearch action when action client support is available
+                    const results = await client.query("agentMemory/queries:search", {
+                        projectId: config.projectId,
+                        query: args.query,
+                        limit: args.limit ?? 10,
+                    });
                     return {
-                        content: [
-                            {
-                                type: "text",
-                                text: "Semantic search requires action context. Falling back to full-text search.",
-                            },
-                        ],
+                        content: [{ type: "text", text: formatMemories(results) }],
                     };
                 }
                 case "memory_list": {
@@ -199,16 +303,15 @@ export async function startMcpServer(config) {
                         projectId: config.projectId,
                         memoryType: args?.memoryType,
                         minPriority: args?.minPriority,
+                        agentId: args?.agentId,
+                        sessionId: args?.sessionId,
+                        source: args?.source,
+                        tags: args?.tags,
                         limit: args?.limit ?? 50,
                         archived: false,
                     });
                     return {
-                        content: [
-                            {
-                                type: "text",
-                                text: formatMemories(list),
-                            },
-                        ],
+                        content: [{ type: "text", text: formatMemories(list) }],
                     };
                 }
                 case "memory_context": {
@@ -233,23 +336,146 @@ export async function startMcpServer(config) {
                     return { content: [{ type: "text", text }] };
                 }
                 case "memory_forget": {
-                    await client.mutation("agentMemory/mutations:archive", { memoryId: args.memoryId });
+                    await client.mutation("agentMemory/mutations:archive", {
+                        memoryId: args.memoryId,
+                        actor: "mcp",
+                    });
                     return {
-                        content: [
-                            { type: "text", text: `Memory archived: ${args.memoryId}` },
-                        ],
+                        content: [{ type: "text", text: `Memory archived: ${args.memoryId}` }],
+                    };
+                }
+                case "memory_restore": {
+                    await client.mutation("agentMemory/mutations:restore", {
+                        memoryId: args.memoryId,
+                        actor: "mcp",
+                    });
+                    return {
+                        content: [{ type: "text", text: `Memory restored: ${args.memoryId}` }],
                     };
                 }
                 case "memory_update": {
                     await client.mutation("agentMemory/mutations:update", {
                         memoryId: args.memoryId,
                         content: args?.content,
+                        title: args?.title,
                         tags: args?.tags,
                         priority: args?.priority,
+                        actor: "mcp",
+                    });
+                    return {
+                        content: [{ type: "text", text: `Memory updated: ${args.memoryId}` }],
+                    };
+                }
+                case "memory_history": {
+                    const entries = await client.query("agentMemory/queries:history", {
+                        memoryId: args.memoryId,
+                        limit: args?.limit ?? 20,
+                    });
+                    if (entries.length === 0) {
+                        return { content: [{ type: "text", text: "No history found." }] };
+                    }
+                    const text = entries
+                        .map((e) => `**${e.event}** by ${e.actor} at ${new Date(e.timestamp).toISOString()}\n` +
+                        (e.previousContent
+                            ? `  Previous: ${e.previousContent.slice(0, 100)}...\n`
+                            : "") +
+                        (e.newContent
+                            ? `  New: ${e.newContent.slice(0, 100)}...\n`
+                            : ""))
+                        .join("\n");
+                    return { content: [{ type: "text", text }] };
+                }
+                case "memory_feedback": {
+                    await client.mutation("agentMemory/mutations:addFeedback", {
+                        memoryId: args.memoryId,
+                        sentiment: args.sentiment,
+                        comment: args?.comment,
+                        actor: "mcp",
                     });
                     return {
                         content: [
-                            { type: "text", text: `Memory updated: ${args.memoryId}` },
+                            {
+                                type: "text",
+                                text: `Feedback recorded: ${args.sentiment} for ${args.memoryId}`,
+                            },
+                        ],
+                    };
+                }
+                case "memory_relate": {
+                    const relationId = await client.mutation("agentMemory/mutations:addRelation", {
+                        projectId: config.projectId,
+                        fromMemoryId: args.fromMemoryId,
+                        toMemoryId: args.toMemoryId,
+                        relationship: args.relationship,
+                        metadata: { createdBy: "mcp" },
+                    });
+                    return {
+                        content: [
+                            {
+                                type: "text",
+                                text: `Relation created: ${args.fromMemoryId} --[${args.relationship}]--> ${args.toMemoryId} (${relationId})`,
+                            },
+                        ],
+                    };
+                }
+                case "memory_relations": {
+                    const relations = await client.query("agentMemory/queries:getRelations", {
+                        memoryId: args.memoryId,
+                        relationship: args?.relationship,
+                        direction: args?.direction,
+                    });
+                    if (relations.length === 0) {
+                        return { content: [{ type: "text", text: "No relations found." }] };
+                    }
+                    const text = relations
+                        .map((r) => `${r.fromMemoryId} --[${r.relationship}]--> ${r.toMemoryId}`)
+                        .join("\n");
+                    return { content: [{ type: "text", text }] };
+                }
+                case "memory_batch_archive": {
+                    const result = await client.mutation("agentMemory/mutations:batchArchive", {
+                        memoryIds: args.memoryIds,
+                        actor: "mcp",
+                    });
+                    return {
+                        content: [
+                            {
+                                type: "text",
+                                text: `Batch archive: ${result.archived} archived, ${result.failed} failed`,
+                            },
+                        ],
+                    };
+                }
+                case "memory_ingest": {
+                    if (!config.llmApiKey) {
+                        return {
+                            content: [
+                                {
+                                    type: "text",
+                                    text: "Ingest requires --llm-api-key flag. Pass an OpenAI-compatible API key to enable intelligent memory extraction.",
+                                },
+                            ],
+                            isError: true,
+                        };
+                    }
+                    const result = await client.action("agentMemory/actions:ingest", {
+                        projectId: config.projectId,
+                        content: args.content,
+                        scope: "project",
+                        agentId: args?.agentId,
+                        sessionId: args?.sessionId,
+                        llmApiKey: config.llmApiKey,
+                        embeddingApiKey: config.embeddingApiKey,
+                    });
+                    const summary = result.results
+                        .map((r) => `- [${r.event}] ${r.content.slice(0, 80)}...${r.previousContent ? ` (was: ${r.previousContent.slice(0, 40)}...)` : ""}`)
+                        .join("\n");
+                    return {
+                        content: [
+                            {
+                                type: "text",
+                                text: `Ingested ${result.totalProcessed} facts:\n${summary}`,
+                            },
                         ],
                     };
                 }
@@ -327,8 +553,18 @@ function formatMemories(memories) {
         return "No memories found.";
     return memories
         .map((m) => {
-        const priority = m.priority !== undefined ? ` (p=${m.priority})` : "";
-        return `## ${m.title} [${m.memoryType}]${priority}\n\n${m.content}`;
+        const meta = [];
+        if (m.priority !== undefined)
+            meta.push(`p=${m.priority}`);
+        if (m.agentId)
+            meta.push(`agent=${m.agentId}`);
+        if (m.accessCount)
+            meta.push(`accessed=${m.accessCount}x`);
+        if (m.positiveCount || m.negativeCount) {
+            meta.push(`feedback=+${m.positiveCount ?? 0}/-${m.negativeCount ?? 0}`);
+        }
+        const metaStr = meta.length > 0 ? ` (${meta.join(", ")})` : "";
+        return `## ${m.title} [${m.memoryType}]${metaStr}\n\n${m.content}`;
     })
         .join("\n\n---\n\n");
 }

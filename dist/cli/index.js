@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { push, pull, detectTools } from "./sync.js";
+import { extractTypeMemories } from "./type-extractor.js";
 import { ConvexHttpClient } from "convex/browser";
 const program = new Command();
 program
@@ -121,6 +122,39 @@ program
         console.log(`    ${preview}${m.content.length > 100 ? "..." : ""}`);
         console.log();
     }
+});
+// ── ingest-types ────────────────────────────────────────────────────
+program
+    .command("ingest-types <glob>")
+    .description("Generate type documentation from TypeScript files and store as reference memories")
+    .option("--project <id>", "Project ID", "default")
+    .option("--user <id>", "User ID for user-scoped memories")
+    .option("--tags <tags>", "Comma-separated additional tags")
+    .option("--priority <n>", "Priority (0-1)", "0.6")
+    .option("--exclude <patterns>", "Comma-separated glob patterns to exclude")
+    .action(async (glob, opts) => {
+    const convexUrl = requireConvexUrl();
+    console.log(`Extracting types from: ${glob}`);
+    const result = await extractTypeMemories({
+        globPattern: glob,
+        cwd: process.cwd(),
+        tags: opts.tags ? opts.tags.split(",") : [],
+        priority: parseFloat(opts.priority),
+        exclude: opts.exclude ? opts.exclude.split(",") : undefined,
+    });
+    if (result.memories.length === 0) {
+        console.log(`No exported types found in ${result.filesProcessed} files.`);
+        return;
+    }
+    console.log(`Found ${result.memories.length} type definitions across ${result.filesProcessed} files.`);
+    console.log("Pushing to Convex...");
+    const client = new ConvexHttpClient(convexUrl);
+    const importResult = await client.mutation("agentMemory/mutations:importFromLocal", {
+        projectId: opts.project,
+        userId: opts.user,
+        memories: result.memories,
+    });
+    console.log(`Done: ${importResult.created} created, ${importResult.updated} updated, ${importResult.unchanged} unchanged`);
 });
 // ── mcp ─────────────────────────────────────────────────────────────
 program

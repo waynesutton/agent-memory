@@ -45,6 +45,9 @@
     "codex"
   ],
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "convex": ">=1.17.0",
     "convex-helpers": ">=0.1.67"

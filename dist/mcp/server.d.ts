@@ -4,6 +4,8 @@ export interface McpServerConfig {
     readOnly: boolean;
     disabledTools: string[];
     embeddingApiKey?: string;
+    llmApiKey?: string;
+    llmModel?: string;
 }
 export declare function startMcpServer(config: McpServerConfig): Promise<void>;
 //# sourceMappingURL=server.d.ts.map

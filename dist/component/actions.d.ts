@@ -17,4 +17,26 @@ export declare const embedAll: import("convex/server").RegisteredAction<"public"
     embedded: number;
     skipped: number;
 }>>;
+export declare const ingest: import("convex/server").RegisteredAction<"public", {
+    scope?: "project" | "user" | "org" | undefined;
+    userId?: string | undefined;
+    agentId?: string | undefined;
+    sessionId?: string | undefined;
+    embeddingApiKey?: string | undefined;
+    customExtractionPrompt?: string | undefined;
+    customUpdatePrompt?: string | undefined;
+    llmModel?: string | undefined;
+    llmBaseUrl?: string | undefined;
+    projectId: string;
+    content: string;
+    llmApiKey: string;
+}, Promise<{
+    results: {
+        memoryId: string;
+        content: string;
+        event: "added" | "updated" | "deleted" | "skipped";
+        previousContent?: string;
+    }[];
+    totalProcessed: number;
+}>>;
 //# sourceMappingURL=actions.d.ts.map

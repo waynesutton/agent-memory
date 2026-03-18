@@ -34,4 +34,34 @@ export const TOOL_FORMATS = [
     "raw",
 ];
 export const toolFormatValidator = v.union(v.literal("claude-code"), v.literal("cursor"), v.literal("opencode"), v.literal("codex"), v.literal("conductor"), v.literal("zed"), v.literal("vscode-copilot"), v.literal("pi"), v.literal("raw"));
+// ── History events ──────────────────────────────────────────────────
+export const HISTORY_EVENTS = [
+    "created",
+    "updated",
+    "archived",
+    "restored",
+    "merged",
+];
+// ── Feedback sentiments ─────────────────────────────────────────────
+export const FEEDBACK_SENTIMENTS = [
+    "positive",
+    "negative",
+    "very_negative",
+];
+// ── Ingest events ───────────────────────────────────────────────────
+export const INGEST_EVENTS = [
+    "added",
+    "updated",
+    "deleted",
+    "skipped",
+];
+export const API_PERMISSIONS = [
+    "list",
+    "get",
+    "search",
+    "context",
+    "export",
+    "history",
+    "relations",
+];
 //# sourceMappingURL=shared.js.map
