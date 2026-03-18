@@ -1,0 +1,126 @@
+# @waynesutton/agent-memory
+
+> A Convex Component for persistent, cloud-synced agent memory. Markdown-first memory backend for AI coding agents across CLIs and IDEs.
+
+## What It Does
+
+AI coding agents (Claude Code, Cursor, OpenCode, Codex, Conductor, Zed, VS Code Copilot, Pi) use local file-based memory (CLAUDE.md, .cursor/rules, AGENTS.md). These are siloed to one machine with no shared backend, no cross-tool sync, and no queryable search.
+
+agent-memory creates a cloud-synced, markdown-first memory backend as a Convex Component with full-text search, vector/semantic search, intelligent ingest, feedback loops, memory relations, relevance decay, a read-only HTTP API, and an MCP server with 14 tools.
+
+## Installation
+
+npm install @waynesutton/agent-memory
+
+Peer dependencies: convex (>=1.17.0), convex-helpers (>=0.1.67)
+
+## Quick Start
+
+1. Register the component in convex/convex.config.ts:
+
+import { defineApp } from "convex/server";
+import agentMemory from "@waynesutton/agent-memory/convex.config.js";
+const app = defineApp();
+app.use(agentMemory);
+export default app;
+
+2. Create wrapper functions in convex/memory.ts:
+
+import { AgentMemory } from "@waynesutton/agent-memory";
+import { components } from "./_generated/api.js";
+const memory = new AgentMemory(components.agentMemory, { projectId: "my-project" });
+
+3. Deploy: npx convex dev
+
+## Package Exports
+
+- @waynesutton/agent-memory — AgentMemory class + types
+- @waynesutton/agent-memory/http — MemoryHttpApi class for read-only HTTP API
+- @waynesutton/agent-memory/convex.config.js — Convex component config
+- @waynesutton/agent-memory/cli — CLI entry point
+- @waynesutton/agent-memory/mcp — MCP server entry point
+
+## AgentMemoryConfig
+
+- projectId (string, required) — unique project identifier
+- defaultScope ("project" | "user" | "org") — default "project"
+- userId (string) — for user-scoped memories
+- agentId (string) — agent identifier
+- sessionId (string) — session/conversation ID
+- embeddingApiKey (string) — enables vector search
+- llmApiKey (string) — enables intelligent ingest
+- llmModel (string) — default "gpt-4.1-nano"
+
+## Key Methods
+
+Read (query context):
+- list(ctx, opts?) — list memories with filters (type, scope, agent, session, source, tags, date range)
+- get(ctx, memoryId) — get single memory
+- search(ctx, query, opts?) — full-text search
+- getContextBundle(ctx, opts?) — 3-tier progressive context (pinned/relevant/available)
+- exportForTool(ctx, format, opts?) — export as tool-native files
+- history(ctx, memoryId) — change audit trail
+- getFeedback(ctx, memoryId) — feedback entries
+- getRelations(ctx, memoryId) — graph connections
+
+Write (mutation context):
+- remember(ctx, memory) — create memory (auto-records history)
+- update(ctx, memoryId, updates) — partial update
+- forget(ctx, memoryId) — archive (soft delete)
+- restore(ctx, memoryId) — un-archive
+- batchArchive(ctx, ids) — archive multiple
+- addFeedback(ctx, memoryId, sentiment, opts?) — rate memory
+- addRelation(ctx, from, to, relationship) — create graph edge
+- recordAccess(ctx, ids) — track access for relevance decay
+
+Action context:
+- embed(ctx, memoryId) — generate vector embedding
+- semanticSearch(ctx, query) — vector similarity search
+- ingest(ctx, content, opts?) — intelligent fact extraction + dedup via LLM
+
+API key management:
+- createApiKey(ctx, opts) — create bearer token for HTTP API
+- revokeApiKey(ctx, keyHash) — revoke a key
+- listApiKeys(ctx) — list non-revoked keys
+
+## Memory Types
+
+- instruction — rules and conventions (maps to .claude/rules/, .cursor/rules/, AGENTS.md)
+- learning — auto-discovered patterns
+- reference — architecture docs, API specs
+- feedback — corrections, preferences
+- journal — session logs
+
+## Schema (9 tables)
+
+memories, embeddings, projects, syncLog, memoryHistory, memoryFeedback, memoryRelations, apiKeys, rateLimitTokens
+
+## MCP Server (14 tools)
+
+memory_remember, memory_recall, memory_semantic_recall, memory_list, memory_context, memory_forget, memory_restore, memory_update, memory_history, memory_feedback, memory_relate, memory_relations, memory_batch_archive, memory_ingest
+
+## HTTP API Endpoints
+
+All require Authorization: Bearer am_<key>
+
+GET /list, /get?id=, /search?q=, /context, /export?format=, /history?id=, /relations?id=
+
+## CLI Commands
+
+agent-memory init, push, pull, list, search, mcp
+
+## Supported Tool Formats
+
+claude-code, cursor, opencode, codex, conductor, zed, vscode-copilot, pi, raw
+
+## Cron Jobs
+
+- relevance-decay — daily 3 AM UTC, reduces priority of stale memories
+- cleanup-old-history — weekly Sunday 4 AM UTC, removes entries >90 days
+- cleanup-rate-limit-tokens — hourly, removes expired rate limit windows
+
+## Documentation
+
+- Full API reference: prds/API-REFERENCE.md
+- Setup guide: prds/SETUP.md
+- README: prds/README.md
