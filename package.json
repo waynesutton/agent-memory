@@ -45,6 +45,14 @@
     "codex"
   ],
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/waynesutton/agent-memory.git"
+  },
+  "homepage": "https://github.com/waynesutton/agent-memory#readme",
+  "bugs": {
+    "url": "https://github.com/waynesutton/agent-memory/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

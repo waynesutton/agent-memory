@@ -68,12 +68,12 @@ These rules are non-negotiable when modifying this codebase:
 3. Add client wrapper methods (`src/client/index.ts`)
 4. Add MCP tool if agent-accessible (`src/mcp/server.ts`)
 5. Add types to `src/shared.ts` if needed
-6. Update docs: `prds/API-REFERENCE.md`, `prds/README.md`, `prds/SETUP.md`
+6. Update docs: `prds/API-REFERENCE.md`, `README.md`, `prds/SETUP.md`
 7. Run `npm run build` to verify — zero TypeScript errors required
 
 ## Docs Location
 
 User-facing docs are in `prds/` (not the project root):
-- `prds/README.md` — full README
+- `README.md` — full README
 - `prds/API-REFERENCE.md` — complete API reference
 - `prds/SETUP.md` — setup guide with all integration paths (A through H)

@@ -123,4 +123,4 @@ claude-code, cursor, opencode, codex, conductor, zed, vscode-copilot, pi, raw
 
 - Full API reference: prds/API-REFERENCE.md
 - Setup guide: prds/SETUP.md
-- README: prds/README.md
+- README: README.md

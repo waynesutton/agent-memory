@@ -105,7 +105,7 @@ Tests use `convex-test` with Vitest. The component exports a test helper at `@wa
 
 ## Documentation
 
-- `prds/README.md` — user-facing README
+- `README.md` — user-facing README
 - `prds/API-REFERENCE.md` — complete API reference
 - `prds/SETUP.md` — step-by-step setup guide
 - `llms.txt` — concise reference for LLMs
