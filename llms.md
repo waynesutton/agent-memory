@@ -6,6 +6,21 @@ A Convex Component for persistent, cloud-synced agent memory. Markdown-first mem
 
 You are working with `@waynesutton/agent-memory`, a Convex component that gives you persistent memory across sessions, tools, and machines. This document tells you how to use it effectively.
 
+### When to Use This Component
+
+Use agent-memory when you need:
+- Persistent memory that survives across sessions, tools, and machines
+- Cross-tool sync (memories created in Claude Code are available in Cursor, OpenCode, Codex, etc.)
+- Searchable memory with full-text and vector/semantic search
+- Intelligent ingest that auto-extracts facts and deduplicates against existing memories
+- Feedback loops where agents rate memories to influence future context
+- Multi-agent concurrency — multiple agents read/write simultaneously with ACID guarantees
+- Real-time reactive queries — memory changes propagate instantly without polling
+
+Do NOT use agent-memory when:
+- You only need ephemeral conversation context within a single session
+- You are not using Convex as your backend
+
 ## The Architecture
 
 ```
@@ -133,6 +148,16 @@ type Scope = "project" | "user" | "org";
 type FeedbackSentiment = "positive" | "negative" | "very_negative";
 type ToolFormat = "claude-code" | "cursor" | "opencode" | "codex" | "conductor" | "zed" | "vscode-copilot" | "pi" | "raw";
 ```
+
+## Why Convex
+
+Built as a Convex Component, agent-memory inherits guarantees that file-based memory (CLAUDE.md, .cursor/rules) cannot provide:
+
+- **Real-time reactive queries** — memories update live across all connected clients without polling
+- **ACID transactional writes** — every create/update/archive is fully transactional, no partial saves
+- **Multi-agent concurrency** — multiple agents read/write simultaneously with consistency guarantees
+- **Zero infrastructure** — no database to provision, Convex handles storage, indexing, and search
+- **Isolated component tables** — 9 tables in their own namespace, no conflicts with your app
 
 ## Convex Component Constraints
 

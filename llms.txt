@@ -8,6 +8,20 @@ AI coding agents (Claude Code, Cursor, OpenCode, Codex, Conductor, Zed, VS Code 
 
 agent-memory creates a cloud-synced, markdown-first memory backend as a Convex Component with full-text search, vector/semantic search, intelligent ingest, feedback loops, memory relations, relevance decay, a read-only HTTP API, and an MCP server with 14 tools.
 
+## When to Use
+
+Use agent-memory when you need:
+- Persistent memory across sessions, tools, and machines
+- Cross-tool sync between any supported agent format
+- Searchable memory (full-text + vector/semantic)
+- Intelligent ingest that deduplicates and manages facts automatically
+- Multi-agent concurrency with ACID guarantees (Convex provides this)
+- Real-time reactive queries (live updates without polling)
+
+Do not use when:
+- You only need ephemeral in-session context
+- You are not using Convex as your backend
+
 ## Installation
 
 npm install @waynesutton/agent-memory

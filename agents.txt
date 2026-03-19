@@ -1,0 +1,122 @@
+# @waynesutton/agent-memory
+
+A Convex Component for persistent, cloud-synced agent memory. Markdown-first memory backend for AI coding agents across CLIs and IDEs.
+
+## When to Use
+
+Use agent-memory when you need:
+- Persistent memory that survives across sessions, tools, and machines
+- Cross-tool sync (Claude Code <-> Cursor <-> OpenCode <-> Codex <-> Zed <-> VS Code Copilot <-> Pi)
+- Searchable memory with full-text and vector/semantic search
+- Intelligent ingest that auto-extracts facts from conversations and deduplicates
+- Feedback loops where agents rate memories as helpful or unhelpful
+- Memory relations (knowledge graph between memories)
+- Relevance decay so stale memories don't dominate context
+- Multi-agent concurrency with ACID transactional guarantees (Convex provides this)
+- Real-time reactive queries (memories update live across all connected clients)
+
+Do NOT use agent-memory when:
+- You only need ephemeral conversation context within a single session
+- You are not using Convex as your backend
+- You need a standalone database (use Ghost, Supabase, etc. instead)
+
+## Quick Start
+
+1. Install: `npm install @waynesutton/agent-memory`
+2. Register the component:
+   ```
+   // convex/convex.config.ts
+   import { defineApp } from "convex/server";
+   import agentMemory from "@waynesutton/agent-memory/convex.config.js";
+   const app = defineApp();
+   app.use(agentMemory);
+   export default app;
+   ```
+3. Create wrapper functions:
+   ```
+   // convex/memory.ts
+   import { AgentMemory } from "@waynesutton/agent-memory";
+   import { components } from "./_generated/api.js";
+   const memory = new AgentMemory(components.agentMemory, { projectId: "my-project" });
+   ```
+4. Deploy: `npx convex dev`
+
+## Key API Methods
+
+Read (query context):
+- list(ctx, opts?) — list memories with filters
+- get(ctx, memoryId) — get single memory
+- search(ctx, query) — full-text search
+- semanticSearch(ctx, query) — vector similarity search
+- getContextBundle(ctx, opts?) — 3-tier progressive context (pinned/relevant/available)
+- exportForTool(ctx, format) — export as tool-native files
+- history(ctx, memoryId) — change audit trail
+- getFeedback(ctx, memoryId) — feedback entries
+- getRelations(ctx, memoryId) — graph connections
+
+Write (mutation context):
+- remember(ctx, memory) — create memory
+- update(ctx, memoryId, updates) — partial update
+- forget(ctx, memoryId) — archive (soft delete)
+- restore(ctx, memoryId) — un-archive
+- batchArchive(ctx, ids) — archive multiple
+- addFeedback(ctx, memoryId, sentiment) — rate memory
+- addRelation(ctx, from, to, relationship) — create graph edge
+
+Action context:
+- embed(ctx, memoryId) — generate vector embedding
+- semanticSearch(ctx, query) — vector similarity search
+- ingest(ctx, content) — LLM-powered fact extraction and dedup
+
+## CLI Commands
+
+npx agent-memory init --project <id>     Initialize project, detect local tools
+npx agent-memory push --project <id>     Push local memory files to Convex
+npx agent-memory pull --project <id>     Pull memories from Convex to local files
+npx agent-memory list --project <id>     List all memories
+npx agent-memory search <query>          Search memories
+npx agent-memory mcp --project <id>      Start MCP server (14 tools)
+
+## MCP Tools (14)
+
+memory_remember, memory_recall, memory_semantic_recall, memory_list,
+memory_context, memory_forget, memory_restore, memory_update,
+memory_history, memory_feedback, memory_relate, memory_relations,
+memory_batch_archive, memory_ingest
+
+## Memory Types
+
+instruction — rules and conventions (maps to .claude/rules/, .cursor/rules/, AGENTS.md)
+learning — auto-discovered patterns
+reference — architecture docs, API specs
+feedback — corrections, preferences
+journal — session logs
+
+## Supported Tool Formats
+
+claude-code, cursor, opencode, codex, conductor, zed, vscode-copilot, pi, raw
+
+## Constraints
+
+- This is a Convex Component — it requires a Convex backend
+- Peer dependencies: convex (>=1.17.0), convex-helpers (>=0.1.67)
+- Vector search requires an OpenAI API key (optional — full-text search works without it)
+- Intelligent ingest requires an LLM API key (optional)
+- Component tables are isolated under the agentMemory namespace
+
+## Workflow Example
+
+1. Agent starts a coding session
+2. Agent calls getContextBundle() to load pinned + path-relevant memories
+3. Agent uses memories as context for the session
+4. Agent discovers a new convention: calls remember() to save it
+5. Agent rates a memory as helpful: calls addFeedback() with "positive"
+6. Session ends — memories persist for the next session, tool, or machine
+7. On another machine, a different agent calls search() and finds the same memories
+
+## Documentation
+
+- Full API reference: prds/API-REFERENCE.md
+- Setup guide: prds/SETUP.md
+- Agent reference: llms.md
+- Concise reference: llms.txt

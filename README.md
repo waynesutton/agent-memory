@@ -975,6 +975,16 @@ npx agent-memory mcp --project my-app --disable-tools memory_forget,memory_inges
 - **Self-maintaining** — cron jobs handle relevance decay and history cleanup automatically
 - **Multi-dimensional scoping** — project + user + agent + session isolation
 
+### Why Convex
+
+Built as a Convex Component, agent-memory inherits powerful guarantees that file-based memory systems (CLAUDE.md, .cursor/rules) cannot provide:
+
+- **Real-time reactive queries** — memories update live across all connected clients. When one agent saves a memory, every other agent sees it instantly without polling or pulling.
+- **ACID transactional writes** — every create, update, and archive is fully transactional. No partial saves, no corrupted state, no merge conflicts.
+- **Multi-agent concurrency** — multiple agents and humans can read and write simultaneously across machines with full consistency guarantees. No locking, no race conditions.
+- **Zero infrastructure** — no database to provision, no servers to manage. Convex handles storage, indexing, full-text search, and vector search out of the box.
+- **Isolated component tables** — the 9 memory tables live in their own namespace (`agentMemory:`), completely isolated from your app's tables. No schema conflicts, no migrations to coordinate.
+
 ---
 
 ## Testing
