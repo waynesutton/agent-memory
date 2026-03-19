@@ -1,9 +1,11 @@
-# @waynesutton/agent-memory
+# @waynesutton/agent-memory (Alpha)
 
 [![npm version](https://img.shields.io/npm/v/@waynesutton/agent-memory.svg)](https://www.npmjs.com/package/@waynesutton/agent-memory)
 [![npm downloads](https://img.shields.io/npm/dm/@waynesutton/agent-memory.svg)](https://www.npmjs.com/package/@waynesutton/agent-memory)
 [![GitHub](https://img.shields.io/github/stars/waynesutton/agent-memory?style=social)](https://github.com/waynesutton/agent-memory)
 [![License](https://img.shields.io/npm/l/@waynesutton/agent-memory.svg)](https://github.com/waynesutton/agent-memory/blob/main/LICENSE)
+
+> **Alpha** — This package is under active development. APIs may change between releases.
 
 A Convex Component for persistent, cloud-synced agent memory. Markdown-first memory backend for AI coding agents across CLIs and IDEs — with intelligent ingest, feedback loops, memory relations, and relevance decay.
 
