@@ -1,12 +1,11 @@
-import { httpActionGeneric, type HttpRouter } from "convex/server";
-import type { api } from "../component/_generated/api.js";
+import { httpActionGeneric, type HttpRouter, type AnyApi } from "convex/server";
 
 // Use the generic httpAction since this is a component (no app-specific data model)
 const httpAction = httpActionGeneric;
 
 // ── Types ───────────────────────────────────────────────────────────
 
-type ComponentApi = typeof api;
+type ComponentApi = AnyApi;
 
 export interface MemoryHttpApiConfig {
   /** Allowed CORS origins. Defaults to ["*"]. */

@@ -1,10 +1,9 @@
 import type {
   GenericActionCtx,
-  GenericDataModel,
   GenericMutationCtx,
   GenericQueryCtx,
+  AnyApi,
 } from "convex/server";
-import type { api } from "../component/_generated/api.js";
 
 import { computeChecksum } from "../component/checksum.js";
 import type {
@@ -43,11 +42,11 @@ export type {
 
 // ── Types ───────────────────────────────────────────────────────────
 
-type QueryCtx = GenericQueryCtx<GenericDataModel>;
-type MutationCtx = GenericMutationCtx<GenericDataModel>;
-type ActionCtx = GenericActionCtx<GenericDataModel>;
+type QueryCtx = GenericQueryCtx<any>;
+type MutationCtx = GenericMutationCtx<any>;
+type ActionCtx = GenericActionCtx<any>;
 
-type ComponentApi = typeof api;
+type ComponentApi = AnyApi;
 
 export interface AgentMemoryConfig {
   projectId: string;

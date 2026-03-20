@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -12,12 +12,17 @@ import { vscodeCopilotParser } from "./vscode-copilot.js";
 import { piParser } from "./pi.js";
 
 let tempDir: string;
+let originalHome: string | undefined;
 
 beforeEach(async () => {
   tempDir = await mkdtemp(join(tmpdir(), "agent-memory-test-"));
+  // Isolate HOME so claudeCodeParser doesn't read real ~/.claude/projects/
+  originalHome = process.env.HOME;
+  process.env.HOME = tempDir;
 });
 
 afterEach(async () => {
+  process.env.HOME = originalHome;
   await rm(tempDir, { recursive: true, force: true });
 });
 
