@@ -40,6 +40,8 @@ export type {
   ApiKeyCreateResult,
 };
 
+export { createApi } from "./api.js";
+
 // ── Types ───────────────────────────────────────────────────────────
 
 type QueryCtx = GenericQueryCtx<any>;

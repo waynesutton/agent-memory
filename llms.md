@@ -26,14 +26,15 @@ Do NOT use agent-memory when:
 ```
 Your App (Convex)
 ├── convex/convex.config.ts    ← registers the component with app.use(agentMemory)
-├── convex/memory.ts           ← your wrapper functions calling AgentMemory class
+├── convex/memory.ts           ← public functions via createApi (CLI/MCP call these)
 ├── convex/http.ts             ← optional: mounts MemoryHttpApi for REST access
 └── node_modules/@waynesutton/agent-memory/
     ├── src/component/         ← Convex backend (9 tables, isolated)
     ├── src/client/index.ts    ← AgentMemory class (main API)
+    ├── src/client/api.ts      ← createApi factory (consumer function definitions)
     ├── src/client/http.ts     ← MemoryHttpApi class (HTTP endpoints)
-    ├── src/mcp/server.ts      ← MCP server (14 tools)
-    └── src/cli/               ← CLI for push/pull/sync
+    ├── src/mcp/server.ts      ← MCP server (14 tools, calls consumer functions)
+    └── src/cli/               ← CLI for push/pull/sync (calls consumer functions)
 ```
 
 ## How to Use
@@ -50,14 +51,29 @@ export default app;
 ```
 
 ```typescript
-// convex/memory.ts
-import { AgentMemory } from "@waynesutton/agent-memory";
-import { components } from "./_generated/api.js";
+// convex/memory.ts — expose public functions for CLI/MCP
+import { query, mutation, action } from "./_generated/server";
+import { components } from "./_generated/api";
+import { createApi } from "@waynesutton/agent-memory";
 
+const api = createApi(components.agentMemory);
+
+export const list = query(api.queries.list);
+export const search = query(api.queries.search);
+export const create = mutation(api.mutations.create);
+export const update = mutation(api.mutations.update);
+export const archive = mutation(api.mutations.archive);
+export const ingest = action(api.actions.ingest);
+// ... see README for full list
+```
+
+For custom logic, use the `AgentMemory` class directly:
+
+```typescript
+import { AgentMemory } from "@waynesutton/agent-memory";
 const memory = new AgentMemory(components.agentMemory, {
   projectId: "my-project",
-  agentId: "my-agent",           // identifies you
-  llmApiKey: process.env.OPENAI_API_KEY,  // for intelligent ingest
+  agentId: "my-agent",
 });
 ```
 
@@ -193,8 +209,7 @@ When using via MCP, these tools are available:
 
 - Component schema: `src/component/schema.ts`
 - Client API: `src/client/index.ts`
+- createApi factory: `src/client/api.ts`
 - HTTP API: `src/client/http.ts`
 - MCP server: `src/mcp/server.ts`
 - Shared types: `src/shared.ts`
-- Full API reference: `prds/API-REFERENCE.md`
-- Setup guide: `prds/SETUP.md`

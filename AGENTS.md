@@ -30,11 +30,12 @@ src/
 │   └── checksum.ts      # FNV-1a hashing
 ├── client/
 │   ├── index.ts         # AgentMemory class (public API)
+│   ├── api.ts           # createApi factory (consumer function definitions)
 │   └── http.ts          # MemoryHttpApi class (HTTP endpoints)
 ├── mcp/
-│   └── server.ts        # MCP server (14 tools)
+│   └── server.ts        # MCP server (14 tools, calls consumer functions)
 ├── cli/
-│   ├── index.ts         # CLI entry point
+│   ├── index.ts         # CLI entry point (calls consumer functions)
 │   ├── sync.ts          # Push/pull logic
 │   └── parsers/         # 8 tool format parsers
 ├── shared.ts            # Shared types and validators
@@ -83,8 +84,13 @@ npm run codegen      # convex codegen for component
 1. Add the function to `src/component/queries.ts` or `src/component/mutations.ts`
 2. Include full `args` and `returns` validators
 3. Add a wrapper method to `src/client/index.ts` (AgentMemory class)
-4. If MCP-accessible, add a tool definition to `src/mcp/server.ts`
-5. Update `src/shared.ts` if new types are needed
+4. Add a function definition to `src/client/api.ts` (createApi factory)
+5. If MCP-accessible, add a tool definition to `src/mcp/server.ts`
+6. Update `src/shared.ts` if new types are needed
+
+### CLI/MCP architecture
+
+The CLI and MCP server use `ConvexHttpClient` to call **consumer-exposed public functions**, not component internals. The consumer generates these functions using `createApi()` and exports them from a Convex module (default: `memory`). The `--module` flag or `AGENT_MEMORY_MODULE` env var controls which module the CLI/MCP targets.
 
 ### The context bundle pattern
 
@@ -106,8 +112,7 @@ Tests use `convex-test` with Vitest. The component exports a test helper at `@wa
 ## Documentation
 
 - `README.md` — user-facing README
-- `prds/API-REFERENCE.md` — complete API reference
-- `prds/SETUP.md` — step-by-step setup guide
+- `AGENTS.md` — agent instructions (this file)
+- `CLAUDE.md` — Claude Code specific instructions
 - `llms.txt` — concise reference for LLMs
 - `llms.md` — detailed agent reference
-- `CLAUDE.md` — Claude Code specific instructions

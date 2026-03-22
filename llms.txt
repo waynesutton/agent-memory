@@ -26,7 +26,7 @@ Do not use when:
 
 npm install @waynesutton/agent-memory
 
-Peer dependencies: convex (>=1.17.0), convex-helpers (>=0.1.67)
+Peer dependency: convex (>=1.17.0)
 
 ## Quick Start
 
@@ -38,17 +38,23 @@ const app = defineApp();
 app.use(agentMemory);
 export default app;
 
-2. Create wrapper functions in convex/memory.ts:
+2. Create public functions in convex/memory.ts using createApi:
 
-import { AgentMemory } from "@waynesutton/agent-memory";
-import { components } from "./_generated/api.js";
-const memory = new AgentMemory(components.agentMemory, { projectId: "my-project" });
+import { query, mutation, action } from "./_generated/server";
+import { components } from "./_generated/api";
+import { createApi } from "@waynesutton/agent-memory";
+const api = createApi(components.agentMemory);
+export const list = query(api.queries.list);
+export const create = mutation(api.mutations.create);
+export const ingest = action(api.actions.ingest);
+// ... (see README for full list)
 
 3. Deploy: npx convex dev
 
 ## Package Exports
 
-- @waynesutton/agent-memory — AgentMemory class + types
+- @waynesutton/agent-memory — AgentMemory class + createApi + types
+- @waynesutton/agent-memory/api — createApi factory (also re-exported from main)
 - @waynesutton/agent-memory/http — MemoryHttpApi class for read-only HTTP API
 - @waynesutton/agent-memory/convex.config.js — Convex component config
 - @waynesutton/agent-memory/cli — CLI entry point
@@ -123,6 +129,8 @@ GET /list, /get?id=, /search?q=, /context, /export?format=, /history?id=, /relat
 
 agent-memory init, push, pull, list, search, mcp
 
+All commands accept --module <name> (or AGENT_MEMORY_MODULE env var) to specify the Convex module where createApi functions are exported. Default: "memory".
+
 ## Supported Tool Formats
 
 claude-code, cursor, opencode, codex, conductor, zed, vscode-copilot, pi, raw
@@ -135,6 +143,7 @@ claude-code, cursor, opencode, codex, conductor, zed, vscode-copilot, pi, raw
 
 ## Documentation
 
-- Full API reference: prds/API-REFERENCE.md
-- Setup guide: prds/SETUP.md
 - README: README.md
+- Agent instructions: AGENTS.md
+- Claude Code instructions: CLAUDE.md
+- LLM reference (detailed): llms.md

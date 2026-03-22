@@ -14,15 +14,47 @@ program
   )
   .version("0.0.1");
 
-// ── init ────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function requireConvexUrl(): string {
+  const url = process.env.CONVEX_URL;
+  if (!url) {
+    console.error("Error: CONVEX_URL environment variable is required.");
+    console.error("Set it to your Convex deployment URL.");
+    process.exit(1);
+  }
+  return url;
+}
+
+/**
+ * Returns the Convex module name where the consumer exports the
+ * createApi-generated functions. Defaults to "memory".
+ *
+ * Set via --module flag or AGENT_MEMORY_MODULE env var.
+ */
+function getModule(opts: { module?: string }): string {
+  return opts.module ?? process.env.AGENT_MEMORY_MODULE ?? "memory";
+}
+
+/** Build a Convex function path like "memory:list". */
+function fn(module: string, name: string): any {
+  return `${module}:${name}`;
+}
+
+// ── init ─────────────────────────────────────────────────────────────
 
 program
   .command("init")
   .description("Detect tools and register project")
   .option("--project <id>", "Project ID", "default")
   .option("--name <name>", "Project display name")
+  .option(
+    "--module <name>",
+    "Convex module that exports createApi functions (default: memory)",
+  )
   .action(async (opts) => {
     const convexUrl = requireConvexUrl();
+    const module = getModule(opts);
     const dir = process.cwd();
 
     console.log("Detecting tools...");
@@ -37,7 +69,7 @@ program
     }
 
     const client = new ConvexHttpClient(convexUrl);
-    await client.mutation("agentMemory/mutations:upsertProject" as any, {
+    await client.mutation(fn(module, "upsertProject"), {
       projectId: opts.project,
       name: opts.name ?? opts.project,
       settings: {
@@ -49,7 +81,7 @@ program
     console.log(`Project "${opts.project}" registered.`);
   });
 
-// ── push ────────────────────────────────────────────────────────────
+// ── push ─────────────────────────────────────────────────────────────
 
 program
   .command("push")
@@ -57,6 +89,10 @@ program
   .option("--project <id>", "Project ID", "default")
   .option("--format <format>", "Tool format to parse")
   .option("--user <id>", "User ID for user-scoped memories")
+  .option(
+    "--module <name>",
+    "Convex module that exports createApi functions (default: memory)",
+  )
   .action(async (opts) => {
     const convexUrl = requireConvexUrl();
     console.log("Pushing local memories to Convex...");
@@ -67,10 +103,11 @@ program
       format: opts.format,
       userId: opts.user,
       dir: process.cwd(),
+      module: getModule(opts),
     });
   });
 
-// ── pull ────────────────────────────────────────────────────────────
+// ── pull ─────────────────────────────────────────────────────────────
 
 program
   .command("pull")
@@ -78,6 +115,10 @@ program
   .option("--project <id>", "Project ID", "default")
   .option("--format <format>", "Output format", "raw")
   .option("--user <id>", "User ID for user-scoped memories")
+  .option(
+    "--module <name>",
+    "Convex module that exports createApi functions (default: memory)",
+  )
   .action(async (opts) => {
     const convexUrl = requireConvexUrl();
     console.log("Pulling memories from Convex...");
@@ -88,28 +129,31 @@ program
       format: opts.format,
       userId: opts.user,
       dir: process.cwd(),
+      module: getModule(opts),
     });
   });
 
-// ── list ────────────────────────────────────────────────────────────
+// ── list ─────────────────────────────────────────────────────────────
 
 program
   .command("list")
   .description("List memories in the terminal")
   .option("--project <id>", "Project ID", "default")
   .option("--type <type>", "Filter by memory type")
+  .option(
+    "--module <name>",
+    "Convex module that exports createApi functions (default: memory)",
+  )
   .action(async (opts) => {
     const convexUrl = requireConvexUrl();
+    const module = getModule(opts);
     const client = new ConvexHttpClient(convexUrl);
 
-    const memories = await client.query(
-      "agentMemory/queries:list" as any,
-      {
-        projectId: opts.project,
-        memoryType: opts.type,
-        archived: false,
-      },
-    );
+    const memories = await client.query(fn(module, "list"), {
+      projectId: opts.project,
+      memoryType: opts.type,
+      archived: false,
+    });
 
     if (memories.length === 0) {
       console.log("No memories found.");
@@ -125,25 +169,27 @@ program
     }
   });
 
-// ── search ──────────────────────────────────────────────────────────
+// ── search ───────────────────────────────────────────────────────────
 
 program
   .command("search <query>")
   .description("Search memories")
   .option("--project <id>", "Project ID", "default")
   .option("--limit <n>", "Max results", "10")
+  .option(
+    "--module <name>",
+    "Convex module that exports createApi functions (default: memory)",
+  )
   .action(async (query, opts) => {
     const convexUrl = requireConvexUrl();
+    const module = getModule(opts);
     const client = new ConvexHttpClient(convexUrl);
 
-    const results = await client.query(
-      "agentMemory/queries:search" as any,
-      {
-        projectId: opts.project,
-        query,
-        limit: parseInt(opts.limit),
-      },
-    );
+    const results = await client.query(fn(module, "search"), {
+      projectId: opts.project,
+      query,
+      limit: parseInt(opts.limit),
+    });
 
     if (results.length === 0) {
       console.log("No results found.");
@@ -160,7 +206,7 @@ program
     }
   });
 
-// ── ingest-types ────────────────────────────────────────────────────
+// ── ingest-types ─────────────────────────────────────────────────────
 
 program
   .command("ingest-types <glob>")
@@ -175,8 +221,13 @@ program
     "--exclude <patterns>",
     "Comma-separated glob patterns to exclude",
   )
+  .option(
+    "--module <name>",
+    "Convex module that exports createApi functions (default: memory)",
+  )
   .action(async (glob: string, opts) => {
     const convexUrl = requireConvexUrl();
+    const module = getModule(opts);
 
     console.log(`Extracting types from: ${glob}`);
 
@@ -202,7 +253,7 @@ program
 
     const client = new ConvexHttpClient(convexUrl);
     const importResult = await client.mutation(
-      "agentMemory/mutations:importFromLocal" as any,
+      fn(module, "importFromLocal"),
       {
         projectId: opts.project,
         userId: opts.user,
@@ -215,7 +266,7 @@ program
     );
   });
 
-// ── mcp ─────────────────────────────────────────────────────────────
+// ── mcp ──────────────────────────────────────────────────────────────
 
 program
   .command("mcp")
@@ -224,8 +275,13 @@ program
   .option("--read-only", "Disable write operations")
   .option("--disable-tools <tools>", "Comma-separated list of tools to disable")
   .option("--embedding-api-key <key>", "API key for vector search")
+  .option(
+    "--module <name>",
+    "Convex module that exports createApi functions (default: memory)",
+  )
   .action(async (opts) => {
     const convexUrl = requireConvexUrl();
+    const module = getModule(opts);
     // Dynamic import to avoid loading MCP deps when not needed
     const { startMcpServer } = await import("../mcp/server.js");
     await startMcpServer({
@@ -236,19 +292,8 @@ program
         ? opts.disableTools.split(",")
         : [],
       embeddingApiKey: opts.embeddingApiKey,
+      module,
     });
   });
-
-// ── Helpers ─────────────────────────────────────────────────────────
-
-function requireConvexUrl(): string {
-  const url = process.env.CONVEX_URL;
-  if (!url) {
-    console.error("Error: CONVEX_URL environment variable is required.");
-    console.error("Set it to your Convex deployment URL.");
-    process.exit(1);
-  }
-  return url;
-}
 
 program.parse();

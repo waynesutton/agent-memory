@@ -16,10 +16,18 @@ export interface McpServerConfig {
   embeddingApiKey?: string;
   llmApiKey?: string;
   llmModel?: string;
+  /** Convex module where createApi functions are exported. Defaults to "memory". */
+  module?: string;
+}
+
+/** Build a Convex function path like "memory:list". */
+function fn(module: string, name: string): any {
+  return `${module}:${name}`;
 }
 
 export async function startMcpServer(config: McpServerConfig): Promise<void> {
   const client = new ConvexHttpClient(config.convexUrl);
+  const module = config.module ?? "memory";
   const server = new Server(
     {
       name: "agent-memory",
@@ -276,7 +284,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
       switch (name) {
         case "memory_remember": {
           const id = await client.mutation(
-            "agentMemory/mutations:create" as any,
+            fn(module, "create"),
             {
               projectId: config.projectId,
               scope: "project",
@@ -302,7 +310,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_recall": {
           const results = await client.query(
-            "agentMemory/queries:search" as any,
+            fn(module, "search"),
             {
               projectId: config.projectId,
               query: args!.query as string,
@@ -316,12 +324,13 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
         }
 
         case "memory_semantic_recall": {
-          if (!config.embeddingApiKey) {
-            const results = await client.query(
-              "agentMemory/queries:search" as any,
+          if (config.embeddingApiKey) {
+            const results = await client.action(
+              fn(module, "semanticSearch"),
               {
                 projectId: config.projectId,
                 query: args!.query as string,
+                embeddingApiKey: config.embeddingApiKey,
                 limit: (args!.limit as number) ?? 10,
               },
             );
@@ -329,9 +338,9 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
               content: [{ type: "text", text: formatMemories(results) }],
             };
           }
-          // TODO: call semanticSearch action when action client support is available
+          // Fallback to text search when no embedding key
           const results = await client.query(
-            "agentMemory/queries:search" as any,
+            fn(module, "search"),
             {
               projectId: config.projectId,
               query: args!.query as string,
@@ -345,7 +354,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_list": {
           const list = await client.query(
-            "agentMemory/queries:list" as any,
+            fn(module, "list"),
             {
               projectId: config.projectId,
               memoryType: args?.memoryType as string | undefined,
@@ -365,7 +374,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_context": {
           const bundle = await client.query(
-            "agentMemory/queries:getContextBundle" as any,
+            fn(module, "getContextBundle"),
             {
               projectId: config.projectId,
               scope: "project",
@@ -390,7 +399,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_forget": {
           await client.mutation(
-            "agentMemory/mutations:archive" as any,
+            fn(module, "archive"),
             {
               memoryId: args!.memoryId as string,
               actor: "mcp",
@@ -403,7 +412,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_restore": {
           await client.mutation(
-            "agentMemory/mutations:restore" as any,
+            fn(module, "restore"),
             {
               memoryId: args!.memoryId as string,
               actor: "mcp",
@@ -416,7 +425,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_update": {
           await client.mutation(
-            "agentMemory/mutations:update" as any,
+            fn(module, "update"),
             {
               memoryId: args!.memoryId as string,
               content: args?.content as string | undefined,
@@ -433,7 +442,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_history": {
           const entries = await client.query(
-            "agentMemory/queries:history" as any,
+            fn(module, "history"),
             {
               memoryId: args!.memoryId as string,
               limit: (args?.limit as number) ?? 20,
@@ -459,7 +468,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_feedback": {
           await client.mutation(
-            "agentMemory/mutations:addFeedback" as any,
+            fn(module, "addFeedback"),
             {
               memoryId: args!.memoryId as string,
               sentiment: args!.sentiment as string,
@@ -479,7 +488,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_relate": {
           const relationId = await client.mutation(
-            "agentMemory/mutations:addRelation" as any,
+            fn(module, "addRelation"),
             {
               projectId: config.projectId,
               fromMemoryId: args!.fromMemoryId as string,
@@ -500,7 +509,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_relations": {
           const relations = await client.query(
-            "agentMemory/queries:getRelations" as any,
+            fn(module, "getRelations"),
             {
               memoryId: args!.memoryId as string,
               relationship: args?.relationship as string | undefined,
@@ -521,7 +530,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
         case "memory_batch_archive": {
           const result = await client.mutation(
-            "agentMemory/mutations:batchArchive" as any,
+            fn(module, "batchArchive"),
             {
               memoryIds: args!.memoryIds as string[],
               actor: "mcp",
@@ -550,7 +559,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
             };
           }
           const result = await client.action(
-            "agentMemory/actions:ingest" as any,
+            fn(module, "ingest"),
             {
               projectId: config.projectId,
               content: args!.content as string,
@@ -618,7 +627,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
     if (uri === `memory://project/${config.projectId}/pinned`) {
       const bundle = await client.query(
-        "agentMemory/queries:getContextBundle" as any,
+        fn(module, "getContextBundle"),
         {
           projectId: config.projectId,
           scope: "project",
@@ -658,7 +667,7 @@ export async function startMcpServer(config: McpServerConfig): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`agent-memory MCP server running for project "${config.projectId}"`);
+  console.error(`agent-memory MCP server running for project "${config.projectId}" (module: ${module})`);
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────

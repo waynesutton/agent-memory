@@ -1,129 +1,44 @@
-import { v } from "convex/values";
+/**
+ * Example: exposing agent-memory as public functions.
+ *
+ * The CLI and MCP server call these by name (e.g. "memory:list",
+ * "memory:create"). The module name defaults to "memory" — if you
+ * rename this file, pass --module <name> to the CLI/MCP.
+ */
+
 import { query, mutation, action } from "./_generated/server.js";
 import { components } from "./_generated/api.js";
-import { AgentMemory } from "../../src/client/index.js";
+import { createApi } from "../../src/client/api.js";
 
-const memory = new AgentMemory(components.agentMemory, {
-  projectId: "example-app",
-  defaultScope: "project",
-});
+const api = createApi(components.agentMemory);
 
-// ── Public mutations ────────────────────────────────────────────────
+// ── Queries ──────────────────────────────────────────────────────────
 
-export const remember = mutation({
-  args: {
-    title: v.string(),
-    content: v.string(),
-    memoryType: v.union(
-      v.literal("instruction"),
-      v.literal("learning"),
-      v.literal("reference"),
-      v.literal("feedback"),
-      v.literal("journal"),
-    ),
-    tags: v.optional(v.array(v.string())),
-    paths: v.optional(v.array(v.string())),
-    priority: v.optional(v.float64()),
-  },
-  returns: v.string(),
-  handler: async (ctx, args) => {
-    return await memory.remember(ctx, {
-      title: args.title,
-      content: args.content,
-      memoryType: args.memoryType,
-      tags: args.tags,
-      paths: args.paths,
-      priority: args.priority,
-      source: "example-app",
-    });
-  },
-});
+export const list = query(api.queries.list);
+export const get = query(api.queries.get);
+export const search = query(api.queries.search);
+export const getContextBundle = query(api.queries.getContextBundle);
+export const history = query(api.queries.history);
+export const projectHistory = query(api.queries.projectHistory);
+export const getFeedback = query(api.queries.getFeedback);
+export const getRelations = query(api.queries.getRelations);
+export const exportForTool = query(api.queries.exportForTool);
 
-export const forget = mutation({
-  args: { memoryId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await memory.forget(ctx, args.memoryId);
-    return null;
-  },
-});
+// ── Mutations ────────────────────────────────────────────────────────
 
-// ── Public queries ──────────────────────────────────────────────────
+export const create = mutation(api.mutations.create);
+export const update = mutation(api.mutations.update);
+export const archive = mutation(api.mutations.archive);
+export const restore = mutation(api.mutations.restore);
+export const batchArchive = mutation(api.mutations.batchArchive);
+export const addFeedback = mutation(api.mutations.addFeedback);
+export const addRelation = mutation(api.mutations.addRelation);
+export const importFromLocal = mutation(api.mutations.importFromLocal);
+export const upsertProject = mutation(api.mutations.upsertProject);
 
-export const listMemories = query({
-  args: {
-    memoryType: v.optional(
-      v.union(
-        v.literal("instruction"),
-        v.literal("learning"),
-        v.literal("reference"),
-        v.literal("feedback"),
-        v.literal("journal"),
-      ),
-    ),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return await memory.list(ctx, {
-      memoryType: args.memoryType,
-    });
-  },
-});
+// ── Actions ──────────────────────────────────────────────────────────
 
-export const recall = query({
-  args: { q: v.string() },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return await memory.search(ctx, args.q);
-  },
-});
-
-export const getContext = query({
-  args: {
-    activePaths: v.optional(v.array(v.string())),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return await memory.getContextBundle(ctx, {
-      activePaths: args.activePaths,
-    });
-  },
-});
-
-// ── Type ingestion ──────────────────────────────────────────────────
-
-export const ingestTypes = mutation({
-  args: {
-    types: v.array(
-      v.object({
-        title: v.string(),
-        content: v.string(),
-        tags: v.optional(v.array(v.string())),
-        paths: v.optional(v.array(v.string())),
-        priority: v.optional(v.float64()),
-      }),
-    ),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return await memory.ingestTypes(ctx, args.types);
-  },
-});
-
-// ── Actions (for vector search) ─────────────────────────────────────
-
-export const semanticRecall = action({
-  args: {
-    q: v.string(),
-    embeddingApiKey: v.string(),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    // Create a memory instance with the API key for this request
-    const memWithKey = new AgentMemory(components.agentMemory, {
-      ...memory.config,
-      embeddingApiKey: args.embeddingApiKey,
-    });
-    return await memWithKey.semanticSearch(ctx, args.q);
-  },
-});
+export const ingest = action(api.actions.ingest);
+export const semanticSearch = action(api.actions.semanticSearch);
+export const generateEmbedding = action(api.actions.generateEmbedding);
+export const embedAll = action(api.actions.embedAll);

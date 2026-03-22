@@ -57,10 +57,10 @@ AI coding agents (Claude Code, Cursor, OpenCode, Codex, Conductor, Zed, VS Code 
 npm install @waynesutton/agent-memory
 ```
 
-Peer dependencies (must be installed in your Convex app):
+Peer dependency:
 
 ```bash
-npm install convex convex-helpers
+npm install convex
 ```
 
 ---
@@ -80,66 +80,46 @@ app.use(agentMemory);
 export default app;
 ```
 
-### 2. Create wrapper functions
+### 2. Expose public functions via `createApi`
+
+Convex component functions are internal — they can't be called by external clients (CLI, MCP, HTTP). The `createApi` factory generates function definitions that you export as public functions:
 
 ```typescript
 // convex/memory.ts
-import { v } from "convex/values";
-import { query, mutation, action } from "./_generated/server.js";
-import { components } from "./_generated/api.js";
-import { AgentMemory } from "@waynesutton/agent-memory";
+import { query, mutation, action } from "./_generated/server";
+import { components } from "./_generated/api";
+import { createApi } from "@waynesutton/agent-memory";
 
-const memory = new AgentMemory(components.agentMemory, {
-  projectId: "my-project",
-  agentId: "my-app",
-  llmApiKey: process.env.OPENAI_API_KEY, // for intelligent ingest
-});
+const api = createApi(components.agentMemory);
 
-// Save a memory
-export const remember = mutation({
-  args: {
-    title: v.string(),
-    content: v.string(),
-    memoryType: v.union(
-      v.literal("instruction"),
-      v.literal("learning"),
-      v.literal("reference"),
-      v.literal("feedback"),
-      v.literal("journal"),
-    ),
-  },
-  returns: v.string(),
-  handler: async (ctx, args) => memory.remember(ctx, args),
-});
+// Queries
+export const list = query(api.queries.list);
+export const get = query(api.queries.get);
+export const search = query(api.queries.search);
+export const getContextBundle = query(api.queries.getContextBundle);
+export const history = query(api.queries.history);
+export const getRelations = query(api.queries.getRelations);
+export const exportForTool = query(api.queries.exportForTool);
 
-// Search memories
-export const recall = query({
-  args: { q: v.string() },
-  returns: v.any(),
-  handler: async (ctx, args) => memory.search(ctx, args.q),
-});
+// Mutations
+export const create = mutation(api.mutations.create);
+export const update = mutation(api.mutations.update);
+export const archive = mutation(api.mutations.archive);
+export const restore = mutation(api.mutations.restore);
+export const batchArchive = mutation(api.mutations.batchArchive);
+export const addFeedback = mutation(api.mutations.addFeedback);
+export const addRelation = mutation(api.mutations.addRelation);
+export const importFromLocal = mutation(api.mutations.importFromLocal);
+export const upsertProject = mutation(api.mutations.upsertProject);
 
-// List all memories
-export const listMemories = query({
-  args: {},
-  returns: v.any(),
-  handler: async (ctx) => memory.list(ctx),
-});
-
-// Intelligently ingest raw text into memories
-export const ingest = action({
-  args: { content: v.string() },
-  returns: v.any(),
-  handler: async (ctx, args) => memory.ingest(ctx, args.content),
-});
-
-// View change history
-export const memoryHistory = query({
-  args: { memoryId: v.string() },
-  returns: v.any(),
-  handler: async (ctx, args) => memory.history(ctx, args.memoryId),
-});
+// Actions
+export const ingest = action(api.actions.ingest);
+export const semanticSearch = action(api.actions.semanticSearch);
 ```
+
+The CLI and MCP server call these functions by module name (default: `"memory"`, matching the filename `convex/memory.ts`).
+
+> **Note:** You can also use the `AgentMemory` class directly inside your own Convex functions for custom logic. See [Client API](#client-api).
 
 ### 3. Deploy and start using
 
@@ -384,19 +364,10 @@ await memory.ingest(ctx, rawText, {
 });
 ```
 
-Or set them in project settings for all ingest operations:
+Or set them in project settings via the CLI:
 
-```typescript
-await ctx.runMutation(components.agentMemory.mutations.upsertProject, {
-  projectId: "my-app",
-  name: "My App",
-  settings: {
-    autoSync: false,
-    syncFormats: [],
-    factExtractionPrompt: "Your custom extraction prompt...",
-    updateDecisionPrompt: "Your custom update decision prompt...",
-  },
-});
+```bash
+npx agent-memory init --project my-app --name "My App"
 ```
 
 ---
@@ -452,17 +423,18 @@ Memories that aren't accessed lose priority over time, preventing stale memories
 - Decay follows an exponential half-life (configurable per-project, default 30 days)
 - Pinned memories (priority >= 0.8) are never decayed
 
-**Enable per-project:**
+**Enable per-project** (via the `upsertProject` mutation exposed by `createApi`):
 
 ```typescript
-await ctx.runMutation(components.agentMemory.mutations.upsertProject, {
+// In a mutation context (the upsertProject function is exported from convex/memory.ts)
+await ctx.runMutation(api.memory.upsertProject, {
   projectId: "my-app",
   name: "My App",
   settings: {
     autoSync: false,
     syncFormats: [],
     decayEnabled: true,
-    decayHalfLifeDays: 30, // memories lose half their priority every 30 days of no access
+    decayHalfLifeDays: 30,
   },
 });
 ```
@@ -473,11 +445,14 @@ await ctx.runMutation(components.agentMemory.mutations.upsertProject, {
 
 The CLI syncs memories between local tool files and Convex.
 
-### Environment Variable
+### Environment Variables
 
 ```bash
 export CONVEX_URL="https://your-deployment.convex.cloud"
+export AGENT_MEMORY_MODULE="memory"  # optional, defaults to "memory"
 ```
+
+The `AGENT_MEMORY_MODULE` (or `--module` flag) tells the CLI which Convex module exports the `createApi` functions. It must match your filename (e.g. `convex/memory.ts` = `"memory"`).
 
 ### Commands
 
@@ -577,6 +552,7 @@ Options:
 | Flag | Description |
 |------|-------------|
 | `--project <id>` | Project ID (default: "default") |
+| `--module <name>` | Convex module with createApi exports (default: "memory") |
 | `--read-only` | Disable write operations |
 | `--disable-tools <tools>` | Comma-separated tool names to disable |
 | `--embedding-api-key <key>` | Enable vector search |
@@ -949,6 +925,7 @@ npx agent-memory mcp --project my-app --disable-tools memory_forget,memory_inges
 │   │   └── checksum.ts         # FNV-1a content hashing
 │   ├── client/
 │   │   ├── index.ts            # AgentMemory class (public API)
+│   │   ├── api.ts              # createApi factory (generates consumer function definitions)
 │   │   └── http.ts             # MemoryHttpApi class (read-only HTTP API)
 │   ├── cli/
 │   │   ├── index.ts            # CLI: init, push, pull, list, search, mcp

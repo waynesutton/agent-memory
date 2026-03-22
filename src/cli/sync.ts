@@ -10,6 +10,13 @@ export interface SyncConfig {
   userId?: string;
   format?: ToolFormat;
   dir: string;
+  /** Convex module name where createApi functions are exported. */
+  module: string;
+}
+
+/** Build a Convex function path like "memory:importFromLocal". */
+function fn(module: string, name: string): any {
+  return `${module}:${name}`;
 }
 
 /**
@@ -38,10 +45,8 @@ export async function push(config: SyncConfig): Promise<void> {
       continue;
     }
 
-    // Use the component's importFromLocal mutation
-    // The API path depends on how the component is mounted
     const result = await client.mutation(
-      "agentMemory/mutations:importFromLocal" as any,
+      fn(config.module, "importFromLocal"),
       {
         projectId: config.projectId,
         userId: config.userId,
@@ -73,7 +78,7 @@ export async function pull(config: SyncConfig): Promise<void> {
   console.log(`  Pulling memories as ${format} format...`);
 
   const files = await client.query(
-    "agentMemory/queries:exportForTool" as any,
+    fn(config.module, "exportForTool"),
     {
       projectId: config.projectId,
       format,
