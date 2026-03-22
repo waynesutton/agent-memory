@@ -63,6 +63,14 @@ Peer dependency:
 npm install convex
 ```
 
+### Uninstall
+
+```bash
+npm uninstall @waynesutton/agent-memory
+```
+
+Then remove the `app.use(agentMemory)` line from `convex/convex.config.ts` and delete your `convex/memory.ts` wrapper file (or whichever module you created with `createApi`).
+
 ---
 
 ## Quick Start
